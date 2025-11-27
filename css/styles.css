@@ -1,0 +1,16 @@
+body {
+background-color: #000 !important;
+color: #fff !important;
+}
+
+
+input, select {
+border: 1px solid #444 !important;
+}
+
+
+.card-dark {
+background-color: #111;
+border: 1px solid #333;
+color: white;
+}
