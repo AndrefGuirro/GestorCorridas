@@ -8,7 +8,7 @@ async function carregarVeiculosSelect() {
   if (!select) return;
   select.innerHTML = '';
   const veiculos = await db.getAll(VEICULOS) || [];
-  // opção "Total"
+
   const optTotal = document.createElement('option');
   optTotal.value = '__total__';
   optTotal.textContent = 'Total';
@@ -43,7 +43,6 @@ async function salvarCorrida(event) {
   };
   await db.add(CORRIDAS, corrida);
 
-  // avisar se km próximo a manutenção programada
   verificarProximidadeManutencao(kmFinal, veiculo);
 
   alert('Corrida salva!');
@@ -57,7 +56,6 @@ async function atualizarDashboard() {
   const select = document.getElementById('selectVeiculo');
   const filtroVeiculo = select ? select.value : '__total__';
 
-  // filtrar corridas
   const corridasFiltradas = filtroVeiculo === '__total__'
     ? corridas
     : corridas.filter(c => String(c.veiculo) === String(filtroVeiculo));
@@ -65,52 +63,57 @@ async function atualizarDashboard() {
   const kmTotal = corridasFiltradas.reduce((acc, c) => acc + (Number(c.kmFinal) - Number(c.kmInicial)), 0);
   const ganhosTotal = corridasFiltradas.reduce((acc, c) => acc + Number(c.valorGanho), 0);
 
-  // média consumo (se um veículo específico e média disponível)
   let ganhoPorKmText = '';
+  let mediaFinal = null;
+
   if (filtroVeiculo !== '__total__') {
     const v = veiculos.find(x => String(x.id) === String(filtroVeiculo));
     if (v) {
-      let media = v.media;
-      // se media não informada, calcular a partir de abastecimentos (manutenções com litros)
-      if (!media) {
-        // média calculada por último abastecimento: vamos calcular a média total por km a partir de manutenções/abastecimentos
+      let media = Number(v.media);
+
+      // Se não houver média informada, tenta calcular usando abastecimentos
+      if (!media || isNaN(media)) {
         const manutencoes = await db.getAll(MANUT) || [];
-        const manutVeic = manutencoes.filter(m => String(m.veiculo) === String(filtroVeiculo) && m.litros && m.km);
-        // precisamos de pares, mas faremos média simples litros/km se tivermos dados
-        if (manutVeic.length > 0) {
-          // calcular média km/l = total_km_rodados / total_litros? Simples aproximação:
-          // ordena por km e soma diferença entre registros subsequentes como km rodado entre abastecimentos
-          manutVeic.sort((a,b) => a.km - b.km);
+        const manutVeic = manutencoes.filter(m =>
+          String(m.veiculo) === String(filtroVeiculo) &&
+          m.litros && m.km
+        );
+
+        if (manutVeic.length > 1) {
+          manutVeic.sort((a, b) => a.km - b.km);
+
           let totalKms = 0;
           let totalLitros = 0;
           for (let i = 1; i < manutVeic.length; i++) {
-            const diffKm = manutVeic[i].km - manutVeic[i-1].km;
-            totalKms += diffKm;
-            totalLitros += Number(manutVeic[i].litros) || 0;
+            totalKms += (manutVeic[i].km - manutVeic[i-1].km);
+            totalLitros += Number(manutVeic[i].litros);
           }
-          if (totalLitros > 0) media = (totalKms / totalLitros).toFixed(2);
+
+          if (totalLitros > 0) {
+            media = totalKms / totalLitros;
+          }
         }
       }
 
-      if (media) {
+      // Se agora a média for válida...
+      if (media && !isNaN(media)) {
+        mediaFinal = media.toFixed(2);
         const ganhoPorKm = ganhosTotal / (kmTotal || 1);
-        ganhoPorKmText = `Ganho por km: R$ ${ganhoPorKm.toFixed(2)} | Média consumo: ${media} km/l`;
+        ganhoPorKmText = `Ganho por km: R$ ${ganhoPorKm.toFixed(2)} | Média consumo: ${mediaFinal} km/l`;
       } else {
-        ganhoPorKmText = 'Média de consumo não informada (nem calculada)';
+        ganhoPorKmText = 'Média de consumo não informada (nenhum dado suficiente).';
       }
     }
-  } else {
-    // total: se houver mix de veículos com médias diferentes, não mostrar cálculo de ganho por km automático
-    ganhoPorKmText = '';
   }
 
-  // próxima manutenção (se um veículo específico)
   let proximaManutText = '';
   if (filtroVeiculo !== '__total__') {
     const manutencoes = await db.getAll(MANUT) || [];
-    const manutVeic = manutencoes.filter(m => String(m.veiculo) === String(filtroVeiculo) && m.proximo);
+    const manutVeic = manutencoes.filter(m =>
+      String(m.veiculo) === String(filtroVeiculo) && m.proximo
+    );
+
     if (manutVeic.length > 0) {
-      // menor proximo km (próximo agendado)
       const proximo = Math.min(...manutVeic.map(m => Number(m.proximo)));
       proximaManutText = `Próxima manutenção: ${proximo} km`;
     }
@@ -127,31 +130,34 @@ async function atualizarDashboard() {
 }
 
 async function verificarProximidadeManutencao(kmAtual, veiculoId) {
-  // buscar manutenções programadas para o veículo (ou todas se total)
   const manutencoes = await db.getAll(MANUT) || [];
   let lista = manutencoes;
+
   if (veiculoId && veiculoId !== '__total__') {
     lista = manutencoes.filter(m => String(m.veiculo) === String(veiculoId));
   }
-  const proximos = lista.filter(m => m.proximo && (Math.abs(Number(m.proximo) - Number(kmAtual) ) <= 80));
+
+  const proximos = lista.filter(m =>
+    m.proximo &&
+    Math.abs(Number(m.proximo) - Number(kmAtual)) <= 80
+  );
+
   if (proximos.length > 0) {
-    // alert discreto
     proximos.forEach(p => {
-      console.warn(`Atenção: próximo serviço "${p.servico}" programado para ${p.proximo} km está próximo (${kmAtual} km).`);
+      console.warn(`Atenção: serviço "${p.servico}" programado para ${p.proximo} km está próximo (${kmAtual} km).`);
     });
-    // também podemos mostrar um toast - simplificado:
-    alert(`Atenção: existe(s) manutenção(ões) próxima(s) relacionada(s) a este veículo.`);
+    alert('Atenção: Existe manutenção próxima para este veículo.');
   }
 }
 
-// evento de mudança no select para recalcular dashboard
 document.addEventListener('DOMContentLoaded', async () => {
   const form = document.getElementById('form-corrida');
   if (form) form.addEventListener('submit', salvarCorrida);
-  const select = document.getElementById('selectVeiculo');
+
   await carregarVeiculosSelect();
-  if (select) {
-    select.addEventListener('change', atualizarDashboard);
-  }
+
+  const select = document.getElementById('selectVeiculo');
+  if (select) select.addEventListener('change', atualizarDashboard);
+
   atualizarDashboard();
 });
