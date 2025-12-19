@@ -1,17 +1,27 @@
-import { carregarDB, salvarDB } from './storage.js';
+import { carregar, salvar } from "./storage.js";
 
+const CHAVE = "veiculos";
+
+/**
+ * Salva um novo veículo no storage
+ */
 export function salvarVeiculo(veiculo) {
-  const db = carregarDB();
-  db.veiculos.push(veiculo);
-  salvarDB(db);
+  const veiculos = carregar(CHAVE) || [];
+  veiculos.push(veiculo);
+  salvar(CHAVE, veiculos);
 }
 
+/**
+ * Lista todos os veículos salvos
+ */
 export function listarVeiculos() {
-  const db = carregarDB();
-  return db.veiculos;
+  return carregar(CHAVE) || [];
 }
 
+/**
+ * Busca um veículo pelo ID
+ */
 export function buscarVeiculoPorId(id) {
-  const db = carregarDB();
-  return db.veiculos.find(v => v.id === id);
+  const veiculos = carregar(CHAVE) || [];
+  return veiculos.find(v => v.id === id);
 }

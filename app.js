@@ -1,7 +1,7 @@
-// app.js orquestrador
+// Apenas liga o sistema 
 
 import "./ui/veiculosController.js";
 
 document.addEventListener("DOMContentLoaded", () => {
-  console.log("App iniciado");
+  console.log("Aplicação iniciada");
 });

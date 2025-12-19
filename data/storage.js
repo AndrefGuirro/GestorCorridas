@@ -1,18 +1,17 @@
-const STORAGE_KEY = 'gestor-corridas-db';
+const PREFIXO = "gestorCorridas:";
 
-export function carregarDB() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    return {
-      veiculos: [],
-      corridas: [],
-      manutencoes: [],
-      abastecimentos: []
-    };
-  }
-  return JSON.parse(raw);
+export function salvar(chave, valor) {
+  localStorage.setItem(
+    PREFIXO + chave,
+    JSON.stringify(valor)
+  );
 }
 
-export function salvarDB(db) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+export function carregar(chave) {
+  const dado = localStorage.getItem(PREFIXO + chave);
+  return dado ? JSON.parse(dado) : null;
+}
+
+export function remover(chave) {
+  localStorage.removeItem(PREFIXO + chave);
 }

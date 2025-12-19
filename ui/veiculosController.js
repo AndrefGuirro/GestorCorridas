@@ -1,4 +1,9 @@
-import { cadastrarVeiculo, obterVeiculos } from "./veiculosUI.js";
+console.log("Controller carregado com sucesso");
+
+
+import { criarVeiculo } from "../core/veiculo.js";
+import { salvarVeiculo, listarVeiculos } from "../data/veiculoRepo.js";
+
 
 const form = document.getElementById("formVeiculo");
 const lista = document.getElementById("listaVeiculos");
@@ -6,7 +11,7 @@ const lista = document.getElementById("listaVeiculos");
 function renderizar() {
   lista.innerHTML = "";
 
-  const veiculos = obterVeiculos();
+  const veiculos = listarVeiculos();
 
   veiculos.forEach(v => {
     const li = document.createElement("li");
@@ -21,10 +26,14 @@ form.addEventListener("submit", event => {
   const nome = document.getElementById("nome").value;
   const combustivel = document.getElementById("combustivel").value;
 
-  cadastrarVeiculo({ nome, combustivel });
-
-  form.reset();
-  renderizar();
+  try {
+    const veiculo = criarVeiculo({ nome, combustivel });
+    salvarVeiculo(veiculo);
+    form.reset();
+    renderizar();
+  } catch (e) {
+    alert(e.message);
+  }
 });
 
 // render inicial
